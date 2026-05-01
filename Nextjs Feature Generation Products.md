@@ -246,14 +246,13 @@ export const createProduct = async (
   return res.data;
 };
 
-export const useCreateProduct = (onSuccess: () => void) => {
+export const useCreateProduct = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createProduct,
     onSuccess: (msg) => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       onMutationSuccess(msg);
-      onSuccess();
     },
     onError: onMutationError,
   });
@@ -276,14 +275,13 @@ export const updateProduct = async (
   return res.data;
 };
 
-export const useUpdateProduct = (onSuccess: () => void) => {
+export const useUpdateProduct = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: updateProduct,
     onSuccess: (msg) => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       onMutationSuccess(msg);
-      onSuccess();
     },
     onError: onMutationError,
   });
@@ -414,7 +412,6 @@ import {
   CreateOrUpdateProductSchema,
   CreateOrUpdateProductDto,
 } from "../types/product.dto";
-import { Input, Button } from "@heroui/react";
 
 type Props = {
   onSubmit: (data: CreateOrUpdateProductDto) => void;
@@ -423,15 +420,27 @@ type Props = {
 };
 
 const ProductForm = ({ onSubmit, isPending, defaultValues }: Props) => {
-  const { register, handleSubmit } = useForm<CreateOrUpdateProductDto>({
+  const { control, trigger, handleSubmit } = useForm<CreateOrUpdateProductDto>({
     resolver: zodResolver(CreateOrUpdateProductSchema),
     defaultValues,
   });
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-      <FormInput label="Name" {...register("name")} />
-      <FormInput type="number" label="Price" {...register("price")} />
+      <FormInput
+        type="text"
+        control={control}
+        name="name"
+        label="Name"
+        trigger={trigger}
+      />
+      <FormInput
+        type="text"
+        control={control}
+        name="price"
+        label="Price"
+        trigger={trigger}
+      />
 
       <Button type="submit" isLoading={isPending}>
         Save
@@ -500,12 +509,17 @@ import { useCreateProduct } from "@/features/product/apis/createProduct";
 
 export default function Page() {
   const router = useRouter();
-  const { mutate, isPending } = useCreateProduct(() =>
-    router.push("/products"),
-  );
+  const { mutate, isPending } = useCreateProduct();
 
   return (
-    <ProductForm onSubmit={(data) => mutate(data)} isPending={isPending} />
+    <ProductForm
+      onSubmit={(data) =>
+        mutate(data, {
+          onSuccess: () => router.push("/products"),
+        })
+      }
+      isPending={isPending}
+    />
   );
 }
 ```
@@ -526,13 +540,18 @@ import { useUpdateProduct } from "@/features/product/apis/updateProduct";
 export default function Page() {
   const { id } = useParams();
   const router = useRouter();
-  const { mutate, isPending } = useUpdateProduct(() =>
-    router.push("/products"),
-  );
+  const { mutate, isPending } = useUpdateProduct();
 
   return (
     <ProductForm
-      onSubmit={(data) => mutate({ id: Number(id), ...data })}
+      onSubmit={(data) =>
+        mutate(
+          { id: Number(id), ...data },
+          {
+            onSuccess: () => router.push("/products"),
+          },
+        )
+      }
       isPending={isPending}
     />
   );
@@ -555,6 +574,7 @@ export default function Page() {
 - Pages = logic only (mutations, routing, passing props to Form)
 - `useCreateProduct` and `useUpdateProduct` both accept an `onSuccess` callback
 - `invalidateQueries` must always use the base `queryKey` (e.g. `["products"]`)
+- **ALWAYS** use frensh labels , fields in english.
 
 ---
 
