@@ -205,8 +205,13 @@ export async function PUT(req: Request, { params }) {
 ```ts
 import { useQuery } from "@tanstack/react-query";
 import customFetch from "@/utils/custom-fetch";
+import { PaginatedData } from "../../../utils/types";
 
-export const getAllProducts = async (page = 0, size = 5, search = "") => {
+export const getAllProducts = async (
+  page = 0,
+  size = 5,
+  search = "",
+): Promise<PaginatedData<Product>> => {
   const res = await customFetch.get(
     `/products?page=${page}&size=${size}&s=${encodeURIComponent(search)}`,
   );
@@ -312,12 +317,24 @@ import {
 } from "@heroui/react";
 
 const ProductsList = () => {
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-
-  const { data, isLoading } = useGetAllProducts(page - 1, 5, search);
-
-  const totalPages = Math.ceil((data?.total || 0) / 5);
+  const [filters, setFilters] = useState({
+    page: 0,
+    pageSize: 10,
+    searchQuery: "",
+  });
+  const [debouncedSearchQuery] = useDebounce(filters.searchQuery, 500);
+  const { data, isLoading } = useGetAllProducts(
+    filters.page - 1,
+    filters.pageSize,
+    debouncedSearchQuery,
+  );
+  const changeFilters = (
+    name: keyof typeof filters,
+    value: number | string,
+  ) => {
+    // TODO : set pagination to 1 when search is changed
+    setFilters((prevFilters) => ({ ...prevFilters, [name]: value }));
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -356,9 +373,9 @@ const ProductsList = () => {
 
       {/* Pagination */}
       <Pagination
-        total={totalPages}
-        page={page}
-        onChange={setPage}
+        total={data.totalPages}
+        page={filters.page}
+        onChange={(page) => changeFilters("page", page)}
         showControls
       />
     </div>
@@ -413,8 +430,8 @@ const ProductForm = ({ onSubmit, isPending, defaultValues }: Props) => {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-      <Input label="Name" {...register("name")} />
-      <Input type="number" label="Price" {...register("price")} />
+      <FormInput label="Name" {...register("name")} />
+      <FormInput type="number" label="Price" {...register("price")} />
 
       <Button type="submit" isLoading={isPending}>
         Save
